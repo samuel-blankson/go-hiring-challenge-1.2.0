@@ -4,6 +4,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// type IProductsRepository interface {
+// 	GetAllProducts() ([]Product, error)
+// }
+
 type ProductsRepository struct {
 	db *gorm.DB
 }

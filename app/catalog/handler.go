@@ -3,15 +3,15 @@ package catalog
 import (
 	"net/http"
 
-	api "github.com/mytheresa/go-hiring-challenge/app/api"
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 )
 
 type Response struct {
-	Products []Product `json:"products"`
+	Products []ProductDTO `json:"products"`
 }
 
-type Product struct {
+type ProductDTO struct {
 	Code  string  `json:"code"`
 	Price float64 `json:"price"`
 }
@@ -27,23 +27,26 @@ func NewCatalogHandler(r *models.ProductsRepository) *CatalogHandler {
 }
 
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
-	res, err := h.repo.GetAllProducts()
+	products, err := h.repo.GetAllProducts()
 	if err != nil {
 		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Map response
-	products := make([]Product, len(res))
-	for i, p := range res {
-		products[i] = Product{
+	response := mapProducts(products)
+
+	api.OKResponse(w, response)
+}
+
+func mapProducts(products []models.Product) Response {
+	res := make([]ProductDTO, len(products))
+	for i, p := range products {
+		res[i] = ProductDTO{
 			Code:  p.Code,
 			Price: p.Price.InexactFloat64(),
 		}
 	}
 
-	response := Response{
-		Products: products,
-	}
-	api.OKResponse(w, response)
+	return Response{Products: res}
 }
