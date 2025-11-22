@@ -51,12 +51,6 @@ func main() {
 	mux.HandleFunc("GET /categories", category.HandleGet)
 	mux.HandleFunc("POST /categories", category.HandleCreate)
 
-	// Ping endpoint
-	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "App is running.")
-	})
-
 	// Set up the HTTP server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("localhost:%s", os.Getenv("HTTP_PORT")),
