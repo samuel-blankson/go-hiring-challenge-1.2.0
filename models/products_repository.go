@@ -62,6 +62,7 @@ func (r *ProductsRepository) GetAllProducts(offset, limit int, filter ProductFil
 	return products, total, nil
 }
 
+// GetProductByCode retrieve's a product by the code
 func (r *ProductsRepository) GetProductByCode(code string) (*Product, error) {
 	var product Product
 
