@@ -4,8 +4,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type ProductFilter struct {
+	CategoryCode  string  // e.g., "CLOTHING"
+	PriceLessThan float64 // products with price < PriceLessThan
+}
+
 type IProductsRepository interface {
-	GetAllProducts() ([]Product, error)
+	GetAllProducts(offset, limit int, filter ProductFilter) ([]Product, int64, error)
 }
 
 type ProductsRepository struct {
@@ -18,10 +23,40 @@ func NewProductsRepository(db *gorm.DB) *ProductsRepository {
 	}
 }
 
-func (r *ProductsRepository) GetAllProducts() ([]Product, error) {
+// GetAllProducts supports offset pagination and preloads Category and Variants
+func (r *ProductsRepository) GetAllProducts(offset, limit int, filter ProductFilter) ([]Product, int64, error) {
 	var products []Product
-	if err := r.db.Preload("Variants").Find(&products).Error; err != nil {
-		return nil, err
+	var total int64
+
+	query := r.db.Model(&Product{}).Preload("Variants").Preload("Category")
+
+	// Apply filters
+	if filter.CategoryCode != "" {
+		query = query.Joins("JOIN categories ON categories.id = products.category_id").
+			Where("categories.code = ?", filter.CategoryCode)
 	}
-	return products, nil
+
+	if filter.PriceLessThan > 0 {
+		query = query.Where("price < ?", filter.PriceLessThan)
+	}
+
+	// Count total products for this filter
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply pagination
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	if err := query.Find(&products).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return products, total, nil
 }
