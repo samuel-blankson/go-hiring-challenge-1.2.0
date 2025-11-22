@@ -3,6 +3,7 @@ package catalog
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
@@ -19,11 +20,24 @@ type ProductDTO struct {
 	Category string  `json:"category"`
 }
 
-type CatalogHandler struct {
-	repo *models.ProductsRepository
+type ProductDetailDTO struct {
+	Code     string       `json:"code"`
+	Price    float64      `json:"price"`
+	Category string       `json:"category"`
+	Variants []VariantDTO `json:"variants"`
 }
 
-func NewCatalogHandler(r *models.ProductsRepository) *CatalogHandler {
+type VariantDTO struct {
+	Name  string  `json:"name"`
+	SKU   string  `json:"sku"`
+	Price float64 `json:"price"`
+}
+
+type CatalogHandler struct {
+	repo models.IProductsRepository
+}
+
+func NewCatalogHandler(r models.IProductsRepository) *CatalogHandler {
 	return &CatalogHandler{
 		repo: r,
 	}
@@ -86,6 +100,29 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	api.OKResponse(w, response)
 }
 
+func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request) {
+	code, err := extractCodeFromPath(r)
+	if err != nil {
+		api.ErrorResponse(w, http.StatusInternalServerError, "Product code missing: "+err.Error())
+		return
+	}
+
+	product, err := h.repo.GetProductByCode(code)
+	if err != nil {
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if product == nil {
+		api.ErrorResponse(w, http.StatusNotFound, "Product not found")
+		return
+	}
+
+	// Map product to DTO
+	detail := mapProductDetail(*product)
+	api.OKResponse(w, detail)
+}
+
 func mapProducts(products []models.Product) []ProductDTO {
 	res := make([]ProductDTO, len(products))
 	for i, p := range products {
@@ -97,4 +134,39 @@ func mapProducts(products []models.Product) []ProductDTO {
 	}
 
 	return res
+}
+
+func mapProductDetail(product models.Product) ProductDetailDTO {
+	var variants []VariantDTO
+
+	for _, v := range product.Variants {
+		price := v.Price
+		if price.IsZero() {
+			price = product.Price // inherit price from parent product if variant is zero
+		}
+		variants = append(variants, VariantDTO{
+			Name:  v.Name,
+			SKU:   v.SKU,
+			Price: price.InexactFloat64(),
+		})
+	}
+
+	return ProductDetailDTO{
+		Code:     product.Code,
+		Price:    product.Price.InexactFloat64(),
+		Category: product.Category.Name,
+		Variants: variants,
+	}
+}
+
+func extractCodeFromPath(r *http.Request) (string, error) {
+	path := r.URL.Path                // "/catalog/PROD001"
+	parts := strings.Split(path, "/") // ["", "catalog", "PROD001"]
+
+	if len(parts) < 3 || parts[2] == "" {
+		return "", http.ErrNoLocation
+	}
+
+	code := parts[2]
+	return code, nil
 }

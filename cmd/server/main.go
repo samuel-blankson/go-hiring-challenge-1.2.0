@@ -40,14 +40,14 @@ func main() {
 
 	// Set up routing
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /catalog", cat.HandleGet)
+	mux.HandleFunc("GET /catalog/{code}", cat.HandleGetByCode)
 
 	// Ping endpoint
 	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "App is running.")
 	})
-
-	mux.HandleFunc("GET /catalog", cat.HandleGet)
 
 	// Set up the HTTP server
 	srv := &http.Server{
